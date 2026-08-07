@@ -11,7 +11,6 @@
   const controls = RaccoonControls.createControls();
 
   let active = RaccoonTitle.create();
-  let mode = "title";
 
   const clock = new THREE.Clock();
 
@@ -44,7 +43,6 @@
 
     const old = active;
     active = RaccoonGame.create(renderer, controls);
-    mode = "game";
     old.dispose();
   }
 

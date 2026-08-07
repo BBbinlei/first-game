@@ -105,11 +105,11 @@
       return { x, z };
     }
 
-    function consumeLookDelta() {
+    function consumeLookDelta(dt) {
       let d = lookAccum;
       lookAccum = 0;
-      if (keys["KeyQ"]) d += 0.03;
-      if (keys["KeyE"]) d -= 0.03;
+      if (keys["KeyQ"]) d += 1.8 * dt;
+      if (keys["KeyE"]) d -= 1.8 * dt;
       return d;
     }
 

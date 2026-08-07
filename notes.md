@@ -39,9 +39,36 @@ Running log of what's built and the calls made along the way. Appended to on eve
   from the previous prototype) gets ported and re-textured next.
 
 ### Next up
-- Port previous prototype's gameplay into `js/game.js`, apply the new
-  procedural textures, wire the touch joystick/look controls into player
-  movement and camera.
+- Add a patrolling guard, sound effects (WebAudio, no audio files needed),
+  pickup particles, alarm screen-shake for extra heist tension.
+- Mobile QA pass with touch emulation at phone viewport sizes.
+
+## 2026-08-07 — Full gameplay ported, textured, and touch-controlled
+
+- `js/game.js` now has the real heist level (ported from the earlier
+  single-file prototype): mansion room, 4 sweeping guard lasers, 10 gems,
+  a vault door that rises open once every gem is collected, alarm meter
+  that busts you if you linger in a laser, win/lose overlay.
+- Every surface uses the procedural textures from `js/textures.js`
+  instead of flat colors: wood-plank floor, wallpapered walls (also used
+  on the pillars), brushed-metal vault door with a glowing rim + radial
+  spokes (mirrors the title screen's vault for visual continuity), fur
+  texture on the raccoon's body/head, mask-fabric texture on the bandit
+  mask/ears/legs.
+- `js/controls.js` unifies keyboard and touch input: desktop keeps
+  WASD/arrows + Q/E, mobile gets a bottom-left virtual joystick
+  (drag-to-move, relative to camera facing, same mapping as WASD) and a
+  drag-anywhere look zone on the right half of the screen (replaces Q/E).
+  Both feed the same `getMove()` / `consumeLookDelta(dt)` API so
+  `game.js` doesn't need to know which input device is active.
+- Verified with Playwright (desktop + iPhone 13 emulation, touch events
+  dispatched via the `Touch`/`TouchEvent` constructors since there's no
+  real touchscreen in this sandbox): title → start transition, WASD
+  movement, joystick drag movement, look-zone drag rotating the camera,
+  full loot-collection win path, and the alarm-maxes-out loss path all
+  work with zero console errors.
+
+### Next up
 - Add a patrolling guard, sound effects (WebAudio, no audio files needed),
   pickup particles, alarm screen-shake for extra heist tension.
 - Mobile QA pass with touch emulation at phone viewport sizes.
