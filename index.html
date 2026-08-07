@@ -1,97 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Raccoon Heist 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0a0714" />
+<title>浣熊夜行 · Raccoon Heist 3D</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%236b6b70'/%3E%3Cpath d='M9 16a7 3 0 0 0 14 0z' fill='%232b2b30'/%3E%3C/svg%3E" />
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background: #05060a;
-    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
-    color: #f4f1e8;
-  }
-  canvas { display: block; }
-
-  #hud {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 10;
-    background: rgba(10, 12, 20, 0.55);
-    border: 1px solid rgba(255, 200, 80, 0.35);
-    border-radius: 10px;
-    padding: 10px 16px;
-    line-height: 1.5;
-    pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-  }
-  #hud .label { color: #ffcc55; font-weight: bold; margin-right: 6px; }
-  #alarmBarWrap {
-    width: 180px;
-    height: 10px;
-    background: rgba(255,255,255,0.15);
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: 6px;
-  }
-  #alarmBar {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #ffd54f, #ff5252);
-    transition: width 0.15s linear;
-  }
-
-  #instructions {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    z-index: 10;
-    background: rgba(10, 12, 20, 0.5);
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 13px;
-    max-width: 280px;
-    pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-  }
-
-  #overlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0,0,0,0.75);
-    z-index: 20;
-    text-align: center;
-    flex-direction: column;
-    gap: 14px;
-  }
-  #overlay h1 {
-    font-size: 2.4em;
-    margin: 0;
-    letter-spacing: 1px;
-  }
-  #overlay p { max-width: 420px; opacity: 0.85; margin: 0; }
-  #overlay button {
-    padding: 10px 26px;
-    font-size: 1em;
-    border-radius: 8px;
-    border: none;
-    background: #ffcc55;
-    color: #221a00;
-    font-weight: bold;
-    cursor: pointer;
-  }
-  #overlay button:hover { background: #ffdd88; }
-  .hidden { display: none !important; }
-</style>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+<div id="app">
+  <!-- Three.js canvas is injected here by js/main.js -->
+</div>
+
+<div id="titleScreen">
+  <div id="titleBlock">
+    <h1 id="gameLogo"><span class="cn">浣熊夜行</span>RACCOON HEIST</h1>
+    <p id="gameTagline">月黑风高，潜入豪宅，避开激光与守卫，卷走每一件战利品，再悄悄溜走。</p>
+    <button id="startBtn" type="button">开始行动 · START</button>
+    <div id="titleHint">桌面：WASD 移动 · 手机：触屏摇杆</div>
+  </div>
+</div>
+<div id="titleCredits">Three.js · procedurally textured</div>
 
 <div id="hud">
   <div><span class="label">Loot</span><span id="lootCount">0</span> / <span id="lootTotal">0</span></div>
@@ -103,8 +37,13 @@
 <div id="instructions">
   <b>Raccoon Heist</b><br/>
   WASD / Arrows — move &nbsp; Q/E — turn camera<br/>
-  Sneak past the red laser sweeps, grab every gem,<br/>
+  Sneak past the guards and lasers, grab every gem,<br/>
   then slip out through the open vault door.
+</div>
+
+<div id="touchLayer">
+  <div class="stick-base" id="stickBase"><div class="stick-nub" id="stickNub"></div></div>
+  <div id="lookZone"></div>
 </div>
 
 <div id="overlay" class="hidden">
@@ -114,336 +53,10 @@
 </div>
 
 <script src="vendor/three.min.js"></script>
-<script>
-(function () {
-  "use strict";
-
-  // ---------- Renderer / Scene / Camera ----------
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0c14);
-  scene.fog = new THREE.Fog(0x0a0c14, 12, 40);
-
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  document.body.appendChild(renderer.domElement);
-
-  window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  // ---------- Lighting ----------
-  scene.add(new THREE.AmbientLight(0x404060, 1.1));
-
-  const moonLight = new THREE.DirectionalLight(0x8fa8ff, 0.6);
-  moonLight.position.set(-10, 18, -6);
-  moonLight.castShadow = true;
-  moonLight.shadow.mapSize.set(1024, 1024);
-  scene.add(moonLight);
-
-  const vaultGlow = new THREE.PointLight(0xffcc55, 1.4, 18, 2);
-  vaultGlow.position.set(0, 4, -16);
-  scene.add(vaultGlow);
-
-  // ---------- Floor & Walls (heist mansion floor plan) ----------
-  const ROOM_W = 20, ROOM_D = 36;
-
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x33302a, roughness: 0.9 });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, 0, -ROOM_D / 2 + 4);
-  floor.receiveShadow = true;
-  scene.add(floor);
-
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1c1e2a, roughness: 0.8 });
-  function makeWall(w, h, d, x, y, z) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
-    wall.position.set(x, y, z);
-    wall.castShadow = true;
-    wall.receiveShadow = true;
-    scene.add(wall);
-    return wall;
-  }
-  const wallH = 6;
-  makeWall(ROOM_W, wallH, 0.5, 0, wallH / 2, -ROOM_D + 4 - 0.25); // north (vault) wall
-  makeWall(0.5, wallH, ROOM_D, -ROOM_W / 2, wallH / 2, -ROOM_D / 2 + 4); // west
-  makeWall(0.5, wallH, ROOM_D, ROOM_W / 2, wallH / 2, -ROOM_D / 2 + 4);  // east
-
-  // Pillars for a mansion feel + hiding spots
-  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x24222c, roughness: 0.7 });
-  const pillarPositions = [
-    [-6, -8], [6, -8], [-6, -20], [6, -20], [-6, -28], [6, -28]
-  ];
-  pillarPositions.forEach(([x, z]) => {
-    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, wallH, 12), pillarMat);
-    pillar.position.set(x, wallH / 2, z);
-    pillar.castShadow = true;
-    pillar.receiveShadow = true;
-    scene.add(pillar);
-  });
-
-  // Vault door (opens once all loot collected)
-  const vaultDoor = new THREE.Mesh(
-    new THREE.BoxGeometry(4.5, 5, 0.4),
-    new THREE.MeshStandardMaterial({ color: 0xb08830, metalness: 0.6, roughness: 0.35 })
-  );
-  vaultDoor.position.set(0, 2.5, -ROOM_D + 4);
-  vaultDoor.castShadow = true;
-  scene.add(vaultDoor);
-
-  const exitGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(4, 4.6),
-    new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0 })
-  );
-  exitGlow.position.set(0, 2.4, -ROOM_D + 4.1);
-  scene.add(exitGlow);
-
-  // ---------- Raccoon Player ----------
-  const raccoon = new THREE.Group();
-
-  const furMat = new THREE.MeshStandardMaterial({ color: 0x6b6b70, roughness: 0.8 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x2b2b30, roughness: 0.7 });
-  const lightMat = new THREE.MeshStandardMaterial({ color: 0xd9d6c9, roughness: 0.7 });
-
-  const bodyGroup = new THREE.Group();
-  const bodyMid = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.55, 12), furMat);
-  bodyMid.rotation.x = Math.PI / 2;
-  bodyGroup.add(bodyMid);
-  const bodyFront = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), furMat);
-  bodyFront.position.z = 0.275;
-  bodyGroup.add(bodyFront);
-  const bodyBack = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), furMat);
-  bodyBack.position.z = -0.275;
-  bodyGroup.add(bodyBack);
-  bodyGroup.position.y = 0.62;
-  bodyGroup.traverse((m) => { if (m.isMesh) m.castShadow = true; });
-  raccoon.add(bodyGroup);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), furMat);
-  head.position.set(0, 0.9, 0.5);
-  head.castShadow = true;
-  raccoon.add(head);
-
-  const mask = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.15), darkMat);
-  mask.position.set(0, 0.92, 0.76);
-  raccoon.add(mask);
-
-  [-0.18, 0.18].forEach((x) => {
-    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 8), darkMat);
-    ear.position.set(x, 1.18, 0.48);
-    raccoon.add(ear);
-  });
-
-  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), lightMat);
-  snout.position.set(0, 0.82, 0.78);
-  raccoon.add(snout);
-
-  const tailGroup = new THREE.Group();
-  tailGroup.position.set(0, 0.6, -0.55);
-  raccoon.add(tailGroup);
-  for (let i = 0; i < 5; i++) {
-    const seg = new THREE.Mesh(new THREE.SphereGeometry(0.22 - i * 0.02, 10, 10), i % 2 === 0 ? furMat : darkMat);
-    seg.position.set(0, Math.sin(i * 0.5) * 0.05, -i * 0.28);
-    tailGroup.add(seg);
-  }
-
-  [[-0.2, 0.28], [0.2, 0.28], [-0.2, -0.28], [0.2, -0.28]].forEach(([x, z]) => {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8), darkMat);
-    leg.position.set(x, 0.2, z);
-    leg.castShadow = true;
-    raccoon.add(leg);
-  });
-
-  raccoon.position.set(0, 0, 2);
-  scene.add(raccoon);
-
-  // ---------- Loot (gems) ----------
-  const lootGeo = new THREE.OctahedronGeometry(0.28, 0);
-  const lootMat = new THREE.MeshStandardMaterial({ color: 0xffd54f, emissive: 0x664400, metalness: 0.4, roughness: 0.3 });
-  const lootSpots = [
-    [-7, -6], [7, -6], [-3, -12], [4, -12], [0, -17],
-    [-7, -22], [7, -22], [-3, -27], [4, -27], [0, -30.5]
-  ];
-  const loot = lootSpots.map(([x, z]) => {
-    const gem = new THREE.Mesh(lootGeo, lootMat);
-    gem.position.set(x, 0.9, z);
-    gem.castShadow = true;
-    gem.userData.baseY = 0.9;
-    gem.userData.phase = Math.random() * Math.PI * 2;
-    scene.add(gem);
-    return gem;
-  });
-  const totalLoot = loot.length;
-  document.getElementById("lootTotal").textContent = totalLoot;
-
-  // ---------- Security lasers ----------
-  const laserMat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0.75 });
-  const lasers = [
-    { z: -9,  min: -8.5, max: 8.5, speed: 0.9, dir: 1 },
-    { z: -15, min: -8.5, max: 8.5, speed: 1.3, dir: -1 },
-    { z: -19, min: -8.5, max: 8.5, speed: 1.0, dir: 1 },
-    { z: -25, min: -8.5, max: 8.5, speed: 1.6, dir: -1 },
-  ].map((cfg) => {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(1.4, 3, 0.12), laserMat);
-    beam.position.set(0, 1.5, cfg.z);
-    scene.add(beam);
-    cfg.mesh = beam;
-    cfg.x = 0;
-    return cfg;
-  });
-
-  // ---------- Input ----------
-  const keys = {};
-  window.addEventListener("keydown", (e) => { keys[e.code] = true; });
-  window.addEventListener("keyup", (e) => { keys[e.code] = false; });
-
-  // ---------- Camera control (yaw orbit behind player) ----------
-  let camYaw = Math.PI; // facing -Z
-  const camDistance = 6.5;
-  const camHeight = 3.2;
-  camera.position.set(
-    raccoon.position.x - Math.sin(camYaw) * camDistance,
-    raccoon.position.y + camHeight,
-    raccoon.position.z - Math.cos(camYaw) * camDistance
-  );
-  camera.lookAt(raccoon.position.x, raccoon.position.y + 1.1, raccoon.position.z);
-
-  // ---------- Game state ----------
-  let lootCollected = 0;
-  let alarmLevel = 0;     // 0..1
-  let gameOver = false;
-  let gameWon = false;
-  let startTime = performance.now();
-  let elapsed = 0;
-
-  const lootCountEl = document.getElementById("lootCount");
-  const timeCountEl = document.getElementById("timeCount");
-  const alarmBarEl = document.getElementById("alarmBar");
-  const overlayEl = document.getElementById("overlay");
-  const overlayTitleEl = document.getElementById("overlayTitle");
-  const overlayTextEl = document.getElementById("overlayText");
-
-  function endGame(won) {
-    gameOver = true;
-    gameWon = won;
-    overlayTitleEl.textContent = won ? "Heist Complete!" : "Busted!";
-    overlayTextEl.textContent = won
-      ? `You slipped out with all ${totalLoot} gems in ${Math.floor(elapsed)}s. Smooth work, raccoon.`
-      : "The guards' alarm maxed out. Better luck on the next job.";
-    overlayEl.classList.remove("hidden");
-  }
-
-  document.getElementById("restartBtn").addEventListener("click", () => {
-    window.location.reload();
-  });
-
-  // ---------- Main loop ----------
-  const clock = new THREE.Clock();
-
-  function animate() {
-    requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.05);
-
-    if (!gameOver) {
-      elapsed = (performance.now() - startTime) / 1000;
-      timeCountEl.textContent = Math.floor(elapsed);
-
-      // Camera yaw controls
-      if (keys["KeyQ"]) camYaw += dt * 1.8;
-      if (keys["KeyE"]) camYaw -= dt * 1.8;
-
-      // Movement relative to camera yaw
-      const forward = new THREE.Vector3(Math.sin(camYaw), 0, Math.cos(camYaw));
-      const right = new THREE.Vector3(forward.z, 0, -forward.x);
-      const move = new THREE.Vector3();
-
-      if (keys["KeyW"] || keys["ArrowUp"]) move.add(forward);
-      if (keys["KeyS"] || keys["ArrowDown"]) move.sub(forward);
-      if (keys["KeyD"] || keys["ArrowRight"]) move.add(right);
-      if (keys["KeyA"] || keys["ArrowLeft"]) move.sub(right);
-
-      const speed = 4.2;
-      if (move.lengthSq() > 0) {
-        move.normalize().multiplyScalar(speed * dt);
-        raccoon.position.add(move);
-        const targetAngle = Math.atan2(move.x, move.z);
-        let da = targetAngle - raccoon.rotation.y;
-        da = Math.atan2(Math.sin(da), Math.cos(da));
-        raccoon.rotation.y += da * Math.min(1, dt * 10);
-      }
-
-      // Bounds
-      raccoon.position.x = THREE.MathUtils.clamp(raccoon.position.x, -ROOM_W / 2 + 0.8, ROOM_W / 2 - 0.8);
-      raccoon.position.z = THREE.MathUtils.clamp(raccoon.position.z, -ROOM_D + 5, 4);
-
-      // Idle bob + tail swish
-      const t = performance.now() * 0.001;
-      raccoon.position.y = Math.sin(t * 6) * (move.lengthSq() > 0 ? 0.04 : 0.01);
-      tailGroup.rotation.y = Math.sin(t * 2.5) * 0.25;
-
-      // Loot pickup
-      for (let i = loot.length - 1; i >= 0; i--) {
-        const gem = loot[i];
-        gem.rotation.y += dt * 2;
-        gem.position.y = gem.userData.baseY + Math.sin(t * 3 + gem.userData.phase) * 0.08;
-        const gemDx = gem.position.x - raccoon.position.x;
-        const gemDz = gem.position.z - raccoon.position.z;
-        if (Math.hypot(gemDx, gemDz) < 0.9) {
-          scene.remove(gem);
-          loot.splice(i, 1);
-          lootCollected++;
-          lootCountEl.textContent = lootCollected;
-        }
-      }
-
-      // Laser sweep + collision
-      let touchingLaser = false;
-      lasers.forEach((l) => {
-        l.x += l.speed * l.dir * dt * 2;
-        if (l.x > l.max) { l.x = l.max; l.dir = -1; }
-        if (l.x < l.min) { l.x = l.min; l.dir = 1; }
-        l.mesh.position.x = l.x;
-
-        const dx = raccoon.position.x - l.x;
-        const dz = raccoon.position.z - l.z;
-        if (Math.abs(dx) < 0.9 && Math.abs(dz) < 0.5) touchingLaser = true;
-      });
-
-      if (touchingLaser) {
-        alarmLevel = Math.min(1, alarmLevel + dt * 0.55);
-      } else {
-        alarmLevel = Math.max(0, alarmLevel - dt * 0.25);
-      }
-      alarmBarEl.style.width = `${alarmLevel * 100}%`;
-      if (alarmLevel >= 1) endGame(false);
-
-      // Vault door / win condition
-      if (lootCollected >= totalLoot) {
-        exitGlow.material.opacity = Math.min(0.9, exitGlow.material.opacity + dt);
-        vaultDoor.position.y = Math.min(6.5, vaultDoor.position.y + dt * 1.5);
-        if (raccoon.position.z < -ROOM_D + 6.5) endGame(true);
-      }
-
-      // Camera follow
-      const camTarget = new THREE.Vector3(
-        raccoon.position.x - Math.sin(camYaw) * camDistance,
-        raccoon.position.y + camHeight,
-        raccoon.position.z - Math.cos(camYaw) * camDistance
-      );
-      camera.position.lerp(camTarget, 1 - Math.pow(0.001, dt));
-      camera.lookAt(raccoon.position.x, raccoon.position.y + 1.1, raccoon.position.z);
-    }
-
-    renderer.render(scene, camera);
-  }
-
-  animate();
-})();
-</script>
+<script src="js/textures.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/title.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
