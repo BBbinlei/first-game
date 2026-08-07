@@ -120,6 +120,19 @@
     const totalLoot = loot.length;
     document.getElementById("lootTotal").textContent = totalLoot;
 
+    // ---------- Patrolling guard with sweeping flashlight ----------
+    const guard = buildGuard();
+    guard.position.set(-5, 0, -12);
+    scene.add(guard);
+    const flashlight = new THREE.SpotLight(0xfff2c0, 2.2, 13, Math.PI / 8, 0.5, 1.5);
+    flashlight.position.set(0, 0.95, 0.1);
+    guard.add(flashlight);
+    const flashlightTarget = new THREE.Object3D();
+    flashlightTarget.position.set(0, -0.3, 3);
+    guard.add(flashlightTarget);
+    flashlight.target = flashlightTarget;
+    const guardState = { minX: -7, maxX: 7, speed: 1.6, dir: 1, sweep: 0 };
+
     // ---------- Security lasers ----------
     const laserMat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0.75 });
     const lasers = [
@@ -172,7 +185,52 @@
       overlayEl.classList.remove("hidden");
     }
 
-    const clockLocal = new THREE.Clock();
+    // ---------- Pickup particle bursts ----------
+    const bursts = [];
+    function spawnBurst(position) {
+      const count = 14;
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(count * 3);
+      const vel = [];
+      for (let i = 0; i < count; i++) {
+        pos[i * 3] = position.x;
+        pos[i * 3 + 1] = position.y;
+        pos[i * 3 + 2] = position.z;
+        const ang = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random() * 2;
+        vel.push(new THREE.Vector3(Math.cos(ang) * speed, 2 + Math.random() * 2, Math.sin(ang) * speed));
+      }
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      const mat = new THREE.PointsMaterial({ color: 0xffd873, size: 0.09, transparent: true, opacity: 1 });
+      const points = new THREE.Points(geo, mat);
+      scene.add(points);
+      bursts.push({ points, vel, life: 0 });
+    }
+    function updateBursts(dt) {
+      for (let i = bursts.length - 1; i >= 0; i--) {
+        const b = bursts[i];
+        b.life += dt;
+        const posAttr = b.points.geometry.getAttribute("position");
+        for (let j = 0; j < b.vel.length; j++) {
+          b.vel[j].y -= 4 * dt;
+          posAttr.setX(j, posAttr.getX(j) + b.vel[j].x * dt);
+          posAttr.setY(j, posAttr.getY(j) + b.vel[j].y * dt);
+          posAttr.setZ(j, posAttr.getZ(j) + b.vel[j].z * dt);
+        }
+        posAttr.needsUpdate = true;
+        b.points.material.opacity = Math.max(0, 1 - b.life / 0.6);
+        if (b.life > 0.6) {
+          scene.remove(b.points);
+          b.points.geometry.dispose();
+          b.points.material.dispose();
+          bursts.splice(i, 1);
+        }
+      }
+    }
+
+    const alarmVignetteEl = document.getElementById("alarmVignette");
+    let footstepTimer = 0;
+    let alarmBlipTimer = 0;
 
     function update(dt) {
       if (gameOver) return;
@@ -206,6 +264,16 @@
       raccoon.position.y = Math.sin(t * 6) * (moving ? 0.04 : 0.01);
       tailGroup.rotation.y = Math.sin(t * 2.5) * 0.25;
 
+      if (moving) {
+        footstepTimer -= dt;
+        if (footstepTimer <= 0) {
+          RaccoonAudio.playFootstep();
+          footstepTimer = 0.32;
+        }
+      } else {
+        footstepTimer = 0;
+      }
+
       // Loot pickup (planar distance — gems float above head height)
       for (let i = loot.length - 1; i >= 0; i--) {
         const gem = loot[i];
@@ -214,15 +282,18 @@
         const dx = gem.position.x - raccoon.position.x;
         const dz = gem.position.z - raccoon.position.z;
         if (Math.hypot(dx, dz) < 0.9) {
+          spawnBurst(gem.position);
+          RaccoonAudio.playPickup();
           scene.remove(gem);
           loot.splice(i, 1);
           lootCollected++;
           lootCountEl.textContent = lootCollected;
         }
       }
+      updateBursts(dt);
 
       // Laser sweep + collision
-      let touchingLaser = false;
+      let danger = 0; // 0 = safe, 0.55 = laser rate, 0.9 = guard rate
       lasers.forEach((l) => {
         l.x += l.speed * l.dir * dt * 2;
         if (l.x > l.max) { l.x = l.max; l.dir = -1; }
@@ -230,31 +301,61 @@
         l.mesh.position.x = l.x;
         const dx = raccoon.position.x - l.x;
         const dz = raccoon.position.z - l.z;
-        if (Math.abs(dx) < 0.9 && Math.abs(dz) < 0.5) touchingLaser = true;
+        if (Math.abs(dx) < 0.9 && Math.abs(dz) < 0.5) danger = Math.max(danger, 0.55);
       });
 
-      if (touchingLaser) {
-        alarmLevel = Math.min(1, alarmLevel + dt * 0.55);
+      // Guard patrol + flashlight sweep + cone detection
+      guard.position.x += guardState.speed * guardState.dir * dt;
+      if (guard.position.x > guardState.maxX) { guard.position.x = guardState.maxX; guardState.dir = -1; }
+      if (guard.position.x < guardState.minX) { guard.position.x = guardState.minX; guardState.dir = 1; }
+      guard.rotation.y = guardState.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+      guardState.sweep += dt;
+      flashlightTarget.position.x = Math.sin(guardState.sweep * 0.9) * 2.2;
+
+      {
+        const toRaccoon = new THREE.Vector3().subVectors(raccoon.position, guard.position);
+        toRaccoon.y = 0;
+        const dist = toRaccoon.length();
+        if (dist < 9 && dist > 0.001) {
+          const facing = new THREE.Vector3(Math.sin(guard.rotation.y + Math.atan2(flashlightTarget.position.x, 3)), 0, Math.cos(guard.rotation.y + Math.atan2(flashlightTarget.position.x, 3)));
+          toRaccoon.normalize();
+          const angle = facing.angleTo(toRaccoon);
+          if (angle < Math.PI / 7) danger = Math.max(danger, 0.9);
+        }
+      }
+
+      if (danger > 0) {
+        alarmLevel = Math.min(1, alarmLevel + dt * danger);
+        alarmBlipTimer -= dt;
+        if (alarmBlipTimer <= 0) {
+          RaccoonAudio.playAlarmBlip();
+          alarmBlipTimer = 0.35;
+        }
       } else {
         alarmLevel = Math.max(0, alarmLevel - dt * 0.25);
+        alarmBlipTimer = 0;
       }
       alarmBarEl.style.width = `${alarmLevel * 100}%`;
-      if (alarmLevel >= 1) endGame(false);
+      alarmVignetteEl.style.opacity = String(Math.pow(alarmLevel, 1.4));
+      if (alarmLevel >= 1) { endGame(false); RaccoonAudio.playBust(); }
 
       // Vault door / win condition
       if (lootCollected >= totalLoot) {
         exitGlow.material.opacity = Math.min(0.9, exitGlow.material.opacity + dt);
         vaultGroup.position.y = Math.min(6.5, vaultGroup.position.y + dt * 1.5);
-        if (raccoon.position.z < -ROOM_D + 6.5) endGame(true);
+        if (raccoon.position.z < -ROOM_D + 6.5) { endGame(true); RaccoonAudio.playWin(); }
       }
 
-      // Camera follow
+      // Camera follow + alarm shake
       const camTarget = new THREE.Vector3(
         raccoon.position.x - Math.sin(camYaw) * camDistance,
         raccoon.position.y + camHeight,
         raccoon.position.z - Math.cos(camYaw) * camDistance
       );
       camera.position.lerp(camTarget, 1 - Math.pow(0.001, dt));
+      const shake = alarmLevel * alarmLevel * 0.12;
+      camera.position.x += (Math.random() - 0.5) * shake;
+      camera.position.y += (Math.random() - 0.5) * shake;
       camera.lookAt(raccoon.position.x, raccoon.position.y + 1.1, raccoon.position.z);
 
       vaultGlow.intensity = 1.6 + Math.sin(t * 2) * 0.2;
@@ -337,6 +438,38 @@
 
     raccoon.userData.tailGroup = tailGroup;
     return raccoon;
+  }
+
+  function buildGuard() {
+    const group = new THREE.Group();
+    const coatMat = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.8 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0x8a6a55, roughness: 0.7 });
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.6 });
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.4, 1.1, 12), coatMat);
+    body.position.y = 0.75;
+    body.castShadow = true;
+    group.add(body);
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), skinMat);
+    head.position.y = 1.5;
+    head.castShadow = true;
+    group.add(head);
+
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.14, 14), capMat);
+    cap.position.y = 1.66;
+    group.add(cap);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 14), capMat);
+    brim.position.set(0, 1.6, 0.08);
+    group.add(brim);
+
+    [-0.22, 0.22].forEach((x) => {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 8), coatMat);
+      arm.position.set(x, 0.75, 0);
+      group.add(arm);
+    });
+
+    return group;
   }
 
   window.RaccoonGame = { create };

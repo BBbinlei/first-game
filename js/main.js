@@ -28,6 +28,7 @@
   });
 
   function startGame() {
+    RaccoonAudio.ensureCtx();
     document.getElementById("titleScreen").classList.add("hidden");
     document.getElementById("hud").classList.add("visible");
     document.getElementById("instructions").classList.add("visible");
