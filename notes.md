@@ -63,9 +63,6 @@ Running log of what's built and the calls made along the way. Appended to on eve
   full loot-collection win path, and the alarm-maxes-out loss path all
   work with zero console errors.
 
-### Next up
-- Mobile QA pass with touch emulation at phone viewport sizes.
-
 ## 2026-08-07 — Guard patrol, WebAudio SFX, particles, alarm feedback
 
 - Added a second threat beyond the static lasers: a patrolling guard
@@ -94,3 +91,27 @@ Running log of what's built and the calls made along the way. Appended to on eve
 
 ### Next up
 - Mobile QA pass with touch emulation at phone viewport sizes.
+
+## 2026-08-07 — Mobile QA pass + polish
+
+- Playwright pass across iPhone SE (smallest current phone, 320px CSS
+  width), iPhone 13, Pixel 7, iPad Mini, and iPhone 13 in landscape:
+  title screen and gameplay both render with zero console errors, zero
+  horizontal overflow (`document.documentElement.scrollWidth ===
+  clientWidth` on every size), and the joystick/HUD never overlap each
+  other or clip off-screen at any of those sizes.
+- Re-ran the full win path (collect all 10 gems → vault opens → escape)
+  on mobile end-to-end after the guard/audio/particle changes, to make
+  sure nothing in that pass regressed the core loop. Still clean.
+- Swept all of `js/` for leftover debug hooks / stray `console.*` calls
+  used while testing during development — none left in what's committed.
+- Rewrote `README.md` (was a one-line placeholder) with what the game
+  is, how to serve it locally, and controls for both input methods.
+
+At this point the game has: an animated 3D title screen, a full
+stealth level (lasers + patrolling guard + loot + vault escape),
+procedurally textured art (no external assets, since the OpenAI image
+API isn't reachable from this sandbox — see the first entry above),
+synthesized WebAudio sound effects, particle/vignette/camera-shake
+feedback, and unified keyboard+touch controls confirmed working on
+phone, tablet, and landscape layouts.
