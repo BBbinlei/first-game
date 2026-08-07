@@ -115,3 +115,29 @@ API isn't reachable from this sandbox — see the first entry above),
 synthesized WebAudio sound effects, particle/vignette/camera-shake
 feedback, and unified keyboard+touch controls confirmed working on
 phone, tablet, and landscape layouts.
+
+## 2026-08-07 — Low-poly art direction pass (moodboard reference)
+
+- User shared two reference images: a low-poly/faceted stylized raccoon
+  holding a glowing gem under a big moon, and a screenshot of Simon
+  Willison's 2022 "Raccoon Heist" GPT-3+DALL-E demo (unrelated tooling,
+  same theme by coincidence — amusing, given what this project already
+  is). Read both as art direction, not literal assets to embed.
+- Applied `flatShading: true` across every `MeshStandardMaterial` in
+  `js/game.js` and `js/title.js`, and swapped most `SphereGeometry`
+  instances for low-subdivision `IcosahedronGeometry` (plus trimmed
+  cylinder/cone radial segment counts) so the raccoon, guard, gems,
+  vault, and pillars all read as faceted low-poly forms instead of
+  smooth-shaded blobs — much closer to the moodboard.
+- Added a big low-poly moon (icosahedron + soft additive-ish halo
+  sphere) to the title-screen sky, and gave the title screen's
+  silhouette raccoon a small glowing held gem with its own point light,
+  as a direct nod to the reference raccoon cradling loot.
+- Hit one regression while doing this: giving the moon its own
+  `PointLight` (in addition to the emissive material making it glow)
+  blew out the scene's lighting balance and made the vault centerpiece
+  render as a dim sliver instead of the bright glowing disc it's meant
+  to be. Fix was simply to drop the extra light — the moon only needs
+  to be self-illuminated via emissive material, not to actually light
+  the rest of the scene. Re-verified the full win path on mobile after
+  the fix; still clean.

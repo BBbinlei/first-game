@@ -24,7 +24,7 @@
 
     const floorMat = new THREE.MeshStandardMaterial({
       map: RaccoonTextures.makeFloorTexture(),
-      roughness: 0.9,
+      roughness: 0.9, flatShading: true,
     });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -33,7 +33,7 @@
     scene.add(floor);
 
     const wallTex = RaccoonTextures.makeWallTexture();
-    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.85 });
+    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.85, flatShading: true });
     function makeWall(w, h, d, x, y, z) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
       wall.position.set(x, y, z);
@@ -48,12 +48,12 @@
     makeWall(0.5, wallH, ROOM_D, ROOM_W / 2, wallH / 2, -ROOM_D / 2 + 4);  // east
 
     // Pillars
-    const pillarMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.7 });
+    const pillarMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.7, flatShading: true });
     const pillarPositions = [
       [-6, -8], [6, -8], [-6, -20], [6, -20], [-6, -28], [6, -28],
     ];
     pillarPositions.forEach(([x, z]) => {
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, wallH, 12), pillarMat);
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, wallH, 7), pillarMat);
       pillar.position.set(x, wallH / 2, z);
       pillar.castShadow = true;
       pillar.receiveShadow = true;
@@ -65,20 +65,20 @@
     const vaultGroup = new THREE.Group();
     const doorMat = new THREE.MeshStandardMaterial({
       map: metalTex, color: 0xffe3a0, metalness: 0.75, roughness: 0.3,
-      emissive: 0x6b4a10, emissiveIntensity: 0.4,
+      emissive: 0x6b4a10, emissiveIntensity: 0.4, flatShading: true,
     });
-    const vaultDoor = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.4, 32), doorMat);
+    const vaultDoor = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.4, 14), doorMat);
     vaultDoor.rotation.x = Math.PI / 2;
     vaultGroup.add(vaultDoor);
     const vaultRim = new THREE.Mesh(
-      new THREE.TorusGeometry(2.12, 0.08, 12, 32),
-      new THREE.MeshStandardMaterial({ color: 0xffd873, emissive: 0xffaa33, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.3 })
+      new THREE.TorusGeometry(2.12, 0.08, 6, 16),
+      new THREE.MeshStandardMaterial({ color: 0xffd873, emissive: 0xffaa33, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.3, flatShading: true })
     );
     vaultGroup.add(vaultRim);
     for (let i = 0; i < 8; i++) {
       const spoke = new THREE.Mesh(
         new THREE.BoxGeometry(0.06, 1.8, 0.1),
-        new THREE.MeshStandardMaterial({ color: 0x3a2a10, metalness: 0.5, roughness: 0.5 })
+        new THREE.MeshStandardMaterial({ color: 0x3a2a10, metalness: 0.5, roughness: 0.5, flatShading: true })
       );
       spoke.rotation.z = (i / 8) * Math.PI * 2;
       spoke.position.z = 0.05;
@@ -103,7 +103,7 @@
 
     // ---------- Loot (gems) ----------
     const lootGeo = new THREE.OctahedronGeometry(0.28, 0);
-    const lootMat = new THREE.MeshStandardMaterial({ color: 0xffd54f, emissive: 0x664400, metalness: 0.4, roughness: 0.3 });
+    const lootMat = new THREE.MeshStandardMaterial({ color: 0xffd54f, emissive: 0x664400, metalness: 0.4, roughness: 0.3, flatShading: true });
     const lootSpots = [
       [-7, -6], [7, -6], [-3, -12], [4, -12], [0, -17],
       [-7, -22], [7, -22], [-3, -27], [4, -27], [0, -30.5],
@@ -383,25 +383,25 @@
     const raccoon = new THREE.Group();
 
     const furTex = RaccoonTextures.makeFurTexture();
-    const furMat = new THREE.MeshStandardMaterial({ map: furTex, roughness: 0.85 });
-    const darkMat = new THREE.MeshStandardMaterial({ map: RaccoonTextures.makeMaskTexture(), roughness: 0.7 });
-    const lightMat = new THREE.MeshStandardMaterial({ color: 0xd9d6c9, roughness: 0.7 });
+    const furMat = new THREE.MeshStandardMaterial({ map: furTex, roughness: 0.85, flatShading: true });
+    const darkMat = new THREE.MeshStandardMaterial({ map: RaccoonTextures.makeMaskTexture(), roughness: 0.7, flatShading: true });
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0xd9d6c9, roughness: 0.7, flatShading: true });
 
     const bodyGroup = new THREE.Group();
-    const bodyMid = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.55, 12), furMat);
+    const bodyMid = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.55, 7), furMat);
     bodyMid.rotation.x = Math.PI / 2;
     bodyGroup.add(bodyMid);
-    const bodyFront = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), furMat);
+    const bodyFront = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 1), furMat);
     bodyFront.position.z = 0.275;
     bodyGroup.add(bodyFront);
-    const bodyBack = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), furMat);
+    const bodyBack = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 1), furMat);
     bodyBack.position.z = -0.275;
     bodyGroup.add(bodyBack);
     bodyGroup.position.y = 0.62;
     bodyGroup.traverse((m) => { if (m.isMesh) m.castShadow = true; });
     raccoon.add(bodyGroup);
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), furMat);
+    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), furMat);
     head.position.set(0, 0.9, 0.5);
     head.castShadow = true;
     raccoon.add(head);
@@ -411,12 +411,12 @@
     raccoon.add(mask);
 
     [-0.18, 0.18].forEach((x) => {
-      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 8), darkMat);
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 6), darkMat);
       ear.position.set(x, 1.18, 0.48);
       raccoon.add(ear);
     });
 
-    const snout = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), lightMat);
+    const snout = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 0), lightMat);
     snout.position.set(0, 0.82, 0.78);
     raccoon.add(snout);
 
@@ -424,13 +424,13 @@
     tailGroup.position.set(0, 0.6, -0.55);
     raccoon.add(tailGroup);
     for (let i = 0; i < 5; i++) {
-      const seg = new THREE.Mesh(new THREE.SphereGeometry(0.22 - i * 0.02, 10, 10), i % 2 === 0 ? furMat : darkMat);
+      const seg = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22 - i * 0.02, 0), i % 2 === 0 ? furMat : darkMat);
       seg.position.set(0, Math.sin(i * 0.5) * 0.05, -i * 0.28);
       tailGroup.add(seg);
     }
 
     [[-0.2, 0.28], [0.2, 0.28], [-0.2, -0.28], [0.2, -0.28]].forEach(([x, z]) => {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8), darkMat);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.4, 6), darkMat);
       leg.position.set(x, 0.2, z);
       leg.castShadow = true;
       raccoon.add(leg);
@@ -442,29 +442,29 @@
 
   function buildGuard() {
     const group = new THREE.Group();
-    const coatMat = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.8 });
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0x8a6a55, roughness: 0.7 });
-    const capMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.6 });
+    const coatMat = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.8, flatShading: true });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0x8a6a55, roughness: 0.7, flatShading: true });
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.6, flatShading: true });
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.4, 1.1, 12), coatMat);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.4, 1.1, 7), coatMat);
     body.position.y = 0.75;
     body.castShadow = true;
     group.add(body);
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), skinMat);
+    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24, 0), skinMat);
     head.position.y = 1.5;
     head.castShadow = true;
     group.add(head);
 
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.14, 14), capMat);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.14, 8), capMat);
     cap.position.y = 1.66;
     group.add(cap);
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 14), capMat);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 8), capMat);
     brim.position.set(0, 1.6, 0.08);
     group.add(brim);
 
     [-0.22, 0.22].forEach((x) => {
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 8), coatMat);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 6), coatMat);
       arm.position.set(x, 0.75, 0);
       group.add(arm);
     });
