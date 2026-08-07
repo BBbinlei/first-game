@@ -141,3 +141,48 @@ phone, tablet, and landscape layouts.
   to be self-illuminated via emissive material, not to actually light
   the rest of the scene. Re-verified the full win path on mobile after
   the fix; still clean.
+
+## 2026-08-07 — Night progression + guard dog (smell-based tracking)
+
+- Added a "night" counter (`js/main.js`, in-memory for the session —
+  winning a heist increments it and returns to the title screen instead
+  of a full page reload, so it persists across attempts without needing
+  localStorage). The title screen and in-game HUD both show the current
+  night. A `?night=N` URL param lets you jump straight to a given
+  night — handy for testing, and for previewing later content directly.
+- From Night 3 onward, `js/game.js` spawns a guard dog (`buildDog()`):
+  low-poly brown hound, red spiked collar, wagging tail, patrolling
+  between random points in the mansion when it hasn't picked up your
+  scent. Detection is deliberately **smell-based, not sight-based** — a
+  flat distance check with no angle/line-of-sight test at all: within
+  12 units it switches to tracking and beelines for the raccoon's
+  current position (barking periodically, via a new `playBark()` in
+  `js/audio.js`), showing a 👃 sprite over its head (a tiny canvas-
+  rendered emoji texture on a `THREE.Sprite`); past 17 units it gives up
+  and goes back to wandering. Contact within ~1 unit while tracking
+  raises the alarm faster than either the lasers or the guard's
+  flashlight, on the theory that a dog that's caught up to you is the
+  most immediate threat of the three.
+- Bust messages are now attributed by source instead of one generic
+  "Busted!": the danger-checks (`noteDanger`) now record which hazard
+  produced the frame's alarm increase — `headlights` (the sweeping red
+  laser beams), `guard` (the patrol guard's flashlight cone), or
+  `hound` (the dog) — and `endGame(false, source)` shows a distinct
+  title/body for each.
+- Verified the wander → track → give-up → caught flow with Playwright,
+  and hit two test-methodology traps worth recording (not game bugs):
+  (1) teleporting the test raccoon a fixed "+20 in X" offset from the
+  dog routinely landed *outside* the room's actual X bounds, so the
+  game's own edge-clamp pulled it back near the dog — every "the dog
+  won't give up" result was really the test breaching the room, not a
+  broken give-up radius; fixed by teleporting to a fixed in-bounds
+  corner instead of an unchecked offset. (2) Sitting the raccoon on a
+  laser's *starting* x-position and checking sometime later found the
+  beam long since swept away — same non-bug, different sweep-timing
+  trap as the guard flashlight test earlier. Both fixed by continuously
+  reading the hazard's *current* position each tick instead of assuming
+  it stays put. With those fixed, the full flow — wander at range,
+  track inside 12 units, give up past 17, catch on contact with the
+  correct "Caught by the Hound!" message — verified clean, alongside
+  regression checks that the laser/guard bust messages ("Headlights"/
+  "Guard") and the full win path still work after all these changes.

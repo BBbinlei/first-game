@@ -101,6 +101,18 @@ canvas { display: block; touch-action: none; }
   letter-spacing: 0.03em;
 }
 
+#nightBadge {
+  display: inline-block;
+  margin-top: 0.7em;
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
+  color: #ffd873;
+  opacity: 0.8;
+  padding: 0.25em 0.9em;
+  border: 1px solid rgba(255, 216, 115, 0.35);
+  border-radius: 999px;
+}
+
 #titleCredits {
   position: fixed;
   bottom: 1.2vh;

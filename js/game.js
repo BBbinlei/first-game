@@ -3,7 +3,8 @@
 (function () {
   "use strict";
 
-  function create(renderer, controls) {
+  function create(renderer, controls, opts) {
+    const { night = 1, onWin = null } = opts || {};
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0c14);
     scene.fog = new THREE.Fog(0x0a0c14, 12, 40);
@@ -133,6 +134,23 @@
     flashlight.target = flashlightTarget;
     const guardState = { minX: -7, maxX: 7, speed: 1.6, dir: 1, sweep: 0 };
 
+    // ---------- Guard dog (from night 3 onward) — tracks by smell, not sight ----------
+    let dog = null;
+    let dogState = null;
+    let noseSprite = null;
+    if (night >= 3) {
+      dog = buildDog();
+      dog.position.set(4, 0, -20);
+      scene.add(dog);
+      noseSprite = makeNoseSprite();
+      noseSprite.position.set(0, 1.05, 0.2);
+      noseSprite.scale.set(0.55, 0.55, 0.55);
+      noseSprite.visible = false;
+      dog.add(noseSprite);
+      dogState = { mode: "wander", target: new THREE.Vector3(), idleTimer: 0, barkTimer: 0 };
+      pickWanderTarget(dogState, ROOM_W, ROOM_D);
+    }
+
     // ---------- Security lasers ----------
     const laserMat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0.75 });
     const lasers = [
@@ -175,13 +193,25 @@
     const overlayTitleEl = document.getElementById("overlayTitle");
     const overlayTextEl = document.getElementById("overlayText");
 
-    function endGame(won) {
+    const BUST_MESSAGES = {
+      guard: { title: "被守卫发现了！Spotted by the Guard!", text: "巡逻守卫的手电筒扫到了你。趁他转身再行动。" },
+      headlights: { title: "被灯光照到了！Caught in the Headlights!", text: "警戒光束扫过了你的位置，触发了警报。" },
+      hound: { title: "被猎犬扑倒了！Caught by the Hound!", text: "猎犬循着你的气味追了上来。拉开 17 米它就会放弃，下次跑远点。" },
+    };
+
+    function endGame(won, source) {
       gameOver = true;
       gameWon = won;
-      overlayTitleEl.textContent = won ? "得手！Heist Complete!" : "被抓了！Busted!";
-      overlayTextEl.textContent = won
-        ? `你卷走了全部 ${totalLoot} 件战利品，用时 ${Math.floor(elapsed)} 秒，溜之大吉。`
-        : "警报拉满，守卫扑了上来。下次悄悄点。";
+      if (won) {
+        overlayTitleEl.textContent = "得手！Heist Complete!";
+        overlayTextEl.textContent = `你卷走了全部 ${totalLoot} 件战利品，用时 ${Math.floor(elapsed)} 秒，溜之大吉。`;
+        if (typeof onWin === "function") onWin();
+      } else {
+        const m = BUST_MESSAGES[source] || { title: "被抓了！Busted!", text: "警报拉满，守卫扑了上来。下次悄悄点。" };
+        overlayTitleEl.textContent = m.title;
+        overlayTextEl.textContent = m.text;
+      }
+      document.getElementById("restartBtn").textContent = won ? "下一晚 · Next Night" : "再试一次 · Retry";
       overlayEl.classList.remove("hidden");
     }
 
@@ -293,7 +323,11 @@
       updateBursts(dt);
 
       // Laser sweep + collision
-      let danger = 0; // 0 = safe, 0.55 = laser rate, 0.9 = guard rate
+      let danger = 0;
+      let dangerSource = null;
+      function noteDanger(value, source) {
+        if (value > danger) { danger = value; dangerSource = source; }
+      }
       lasers.forEach((l) => {
         l.x += l.speed * l.dir * dt * 2;
         if (l.x > l.max) { l.x = l.max; l.dir = -1; }
@@ -301,7 +335,7 @@
         l.mesh.position.x = l.x;
         const dx = raccoon.position.x - l.x;
         const dz = raccoon.position.z - l.z;
-        if (Math.abs(dx) < 0.9 && Math.abs(dz) < 0.5) danger = Math.max(danger, 0.55);
+        if (Math.abs(dx) < 0.9 && Math.abs(dz) < 0.5) noteDanger(0.55, "headlights");
       });
 
       // Guard patrol + flashlight sweep + cone detection
@@ -320,8 +354,57 @@
           const facing = new THREE.Vector3(Math.sin(guard.rotation.y + Math.atan2(flashlightTarget.position.x, 3)), 0, Math.cos(guard.rotation.y + Math.atan2(flashlightTarget.position.x, 3)));
           toRaccoon.normalize();
           const angle = facing.angleTo(toRaccoon);
-          if (angle < Math.PI / 7) danger = Math.max(danger, 0.9);
+          if (angle < Math.PI / 7) noteDanger(0.9, "guard");
         }
+      }
+
+      // Guard dog: smell-based tracking (distance only, sight doesn't matter)
+      if (dog) {
+        const toRaccoon = new THREE.Vector3().subVectors(raccoon.position, dog.position);
+        toRaccoon.y = 0;
+        const distToRaccoon = toRaccoon.length();
+
+        if (dogState.mode === "wander" && distToRaccoon < 12) {
+          dogState.mode = "track";
+          noseSprite.visible = true;
+        } else if (dogState.mode === "track" && distToRaccoon > 17) {
+          dogState.mode = "wander";
+          noseSprite.visible = false;
+          pickWanderTarget(dogState, ROOM_W, ROOM_D);
+        }
+
+        let moveTarget, dogSpeed;
+        if (dogState.mode === "track") {
+          moveTarget = raccoon.position;
+          dogSpeed = 3.6;
+          dogState.barkTimer -= dt;
+          if (dogState.barkTimer <= 0) {
+            RaccoonAudio.playBark();
+            dogState.barkTimer = 0.6 + Math.random() * 0.3;
+          }
+          if (distToRaccoon < 1.1) noteDanger(1.3, "hound");
+        } else {
+          moveTarget = dogState.target;
+          dogSpeed = 1.8;
+          const distToTarget = Math.hypot(dog.position.x - dogState.target.x, dog.position.z - dogState.target.z);
+          if (distToTarget < 0.6) {
+            dogState.idleTimer -= dt;
+            if (dogState.idleTimer <= 0) pickWanderTarget(dogState, ROOM_W, ROOM_D);
+          }
+        }
+
+        const dogMove = new THREE.Vector3(moveTarget.x - dog.position.x, 0, moveTarget.z - dog.position.z);
+        if (dogMove.lengthSq() > 0.0004) {
+          dogMove.normalize().multiplyScalar(dogSpeed * dt);
+          dog.position.add(dogMove);
+          const targetAngle = Math.atan2(dogMove.x, dogMove.z);
+          let da = targetAngle - dog.rotation.y;
+          da = Math.atan2(Math.sin(da), Math.cos(da));
+          dog.rotation.y += da * Math.min(1, dt * 8);
+        }
+        dog.position.x = THREE.MathUtils.clamp(dog.position.x, -ROOM_W / 2 + 0.8, ROOM_W / 2 - 0.8);
+        dog.position.z = THREE.MathUtils.clamp(dog.position.z, -ROOM_D + 5, 4);
+        dog.userData.tail.rotation.y = Math.sin(t * (dogState.mode === "track" ? 14 : 6)) * 0.5;
       }
 
       if (danger > 0) {
@@ -337,7 +420,7 @@
       }
       alarmBarEl.style.width = `${alarmLevel * 100}%`;
       alarmVignetteEl.style.opacity = String(Math.pow(alarmLevel, 1.4));
-      if (alarmLevel >= 1) { endGame(false); RaccoonAudio.playBust(); }
+      if (alarmLevel >= 1) { endGame(false, dangerSource); RaccoonAudio.playBust(); }
 
       // Vault door / win condition
       if (lootCollected >= totalLoot) {
@@ -468,6 +551,94 @@
       arm.position.set(x, 0.75, 0);
       group.add(arm);
     });
+
+    return group;
+  }
+
+  function pickWanderTarget(state, ROOM_W, ROOM_D) {
+    state.target.set(
+      (Math.random() - 0.5) * (ROOM_W - 3),
+      0,
+      -ROOM_D + 6 + Math.random() * (ROOM_D - 9)
+    );
+    state.idleTimer = 1 + Math.random() * 2;
+  }
+
+  function makeNoseSprite() {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    ctx.font = "44px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("👃", 32, 34);
+    const tex = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    return sprite;
+  }
+
+  function buildDog() {
+    const group = new THREE.Group();
+    const furMat = new THREE.MeshStandardMaterial({ color: 0x7a4a28, roughness: 0.85, flatShading: true });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x3a2415, roughness: 0.8, flatShading: true });
+    const collarMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.5, flatShading: true });
+    const spikeMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.6, roughness: 0.3, flatShading: true });
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.75, 7), furMat);
+    body.rotation.x = Math.PI / 2;
+    body.position.y = 0.42;
+    body.castShadow = true;
+    group.add(body);
+
+    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), furMat);
+    head.position.set(0, 0.5, 0.5);
+    head.castShadow = true;
+    group.add(head);
+
+    const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.28, 6), furMat);
+    snout.rotation.x = Math.PI / 2;
+    snout.position.set(0, 0.44, 0.72);
+    group.add(snout);
+
+    const noseTip = new THREE.Mesh(new THREE.IcosahedronGeometry(0.045, 0), darkMat);
+    noseTip.position.set(0, 0.44, 0.86);
+    group.add(noseTip);
+
+    [-0.12, 0.12].forEach((x) => {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 6), darkMat);
+      ear.position.set(x, 0.64, 0.42);
+      ear.rotation.x = 0.4;
+      ear.rotation.z = x > 0 ? -0.3 : 0.3;
+      group.add(ear);
+    });
+
+    // Spiked red collar around the neck
+    const collarBase = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 10), collarMat);
+    collarBase.rotation.x = Math.PI / 2;
+    collarBase.position.set(0, 0.5, 0.34);
+    group.add(collarBase);
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.1, 5), spikeMat);
+      spike.position.set(Math.cos(ang) * 0.2, 0.5 + Math.sin(ang) * 0.15, 0.34);
+      group.add(spike);
+    }
+
+    [[-0.14, 0.25], [0.14, 0.25], [-0.14, -0.2], [0.14, -0.2]].forEach(([x, z]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.32, 6), darkMat);
+      leg.position.set(x, 0.16, z);
+      leg.castShadow = true;
+      group.add(leg);
+    });
+
+    const tailGroup = new THREE.Group();
+    tailGroup.position.set(0, 0.5, -0.35);
+    group.add(tailGroup);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.4, 6), furMat);
+    tail.rotation.x = Math.PI / 2.2;
+    tail.position.set(0, 0.05, -0.15);
+    tailGroup.add(tail);
+    group.userData.tail = tailGroup;
 
     return group;
   }

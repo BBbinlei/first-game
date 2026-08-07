@@ -23,6 +23,7 @@
     <p id="gameTagline">月黑风高，潜入豪宅，避开激光与守卫，卷走每一件战利品，再悄悄溜走。</p>
     <button id="startBtn" type="button">开始行动 · START</button>
     <div id="titleHint">桌面：WASD 移动 · 手机：触屏摇杆</div>
+    <div id="nightBadge">第 1 晚 · Night 1</div>
   </div>
 </div>
 <div id="titleCredits">Three.js · procedurally textured</div>
@@ -30,6 +31,7 @@
 <div id="alarmVignette"></div>
 
 <div id="hud">
+  <div><span class="label">Night</span><span id="hudNight">1</span></div>
   <div><span class="label">Loot</span><span id="lootCount">0</span> / <span id="lootTotal">0</span></div>
   <div><span class="label">Time</span><span id="timeCount">0</span>s</div>
   <div style="margin-top:4px;">Alarm</div>
@@ -39,8 +41,9 @@
 <div id="instructions">
   <b>Raccoon Heist</b><br/>
   WASD / Arrows — move &nbsp; Q/E — turn camera<br/>
-  Sneak past the guards and lasers, grab every gem,<br/>
-  then slip out through the open vault door.
+  Sneak past the guard's flashlight and the laser beams, grab every gem,<br/>
+  then slip out through the open vault door.<br/>
+  From Night 3: a hound tracks you by smell within 12m and gives up past 17m.
 </div>
 
 <div id="touchLayer">

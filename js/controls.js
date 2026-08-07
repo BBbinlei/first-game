@@ -17,9 +17,12 @@
     window.addEventListener("keydown", (e) => { keys[e.code] = true; });
     window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
+    let touchSetupDone = false;
     function setupTouch({ touchLayer, stickBase, stickNub, lookZone }) {
       if (!isTouch) return;
       touchLayer.classList.add("active");
+      if (touchSetupDone) return;
+      touchSetupDone = true;
 
       const baseRect = () => stickBase.getBoundingClientRect();
       const maxRadius = 42;

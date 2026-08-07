@@ -52,5 +52,10 @@
     tone({ freq: 900, type: "square", duration: 0.07, gain: 0.06 });
   }
 
-  window.RaccoonAudio = { ensureCtx, playPickup, playFootstep, playBust, playWin, playAlarmBlip };
+  function playBark() {
+    tone({ freq: 260, type: "sawtooth", duration: 0.09, gain: 0.15, glideTo: 140 });
+    tone({ freq: 200, type: "square", start: 0.11, duration: 0.07, gain: 0.1, glideTo: 110 });
+  }
+
+  window.RaccoonAudio = { ensureCtx, playPickup, playFootstep, playBust, playWin, playAlarmBlip, playBark };
 })();
